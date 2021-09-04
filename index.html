@@ -14,15 +14,9 @@
 
 <script type="text/javascript">
 
-var stars;
-var bombs;
-var platforms;
-var cursors;
-var gameOver = false;
-var players = []
-
 var config = {
-  players: 4,
+  players: 6,
+  player_textures: 4,
   type: Phaser.AUTO,
   width: 800,
   height: 600,
@@ -30,102 +24,94 @@ var config = {
   block_height: 48,
 
   physics: {
-      default: 'arcade',
-      arcade: {
-          gravity: { y: 300 },
-          debug: false
-      }
+    default: 'arcade',
+    arcade: {
+        gravity: { y: 300 },
+        debug: false
+    }
   },
   scene: {
-      preload: preload,
-      create: create,
-      update: update
+    preload: preload,
+    create: create,
+    update: update
+  },
+  key_binds: { // left, right, jump
+    // player_0 is arrow keys
+    1: ['A', 'D', 'W'], 
+    2: ['F', 'H', 'T'],
+    3: ['J', 'L', 'I'],
+    4: ['NUMPAD_FOUR', 'NUMPAD_SIX', 'NUMPAD_EIGHT'],
   }
 };
 
-let Player = class {
-
+let Player = class
+{
   constructor(player_number, sprites)
   {
     this.player_number = player_number
     this.score = 0;
-    sprites.load.spritesheet('player' + player_number, 'assets/player' + this.player_number + '.png', { frameWidth: 32, frameHeight: 48 });
+    if(player_number >= config.player_textures)
+    {
+      sprites.load.spritesheet('player' + player_number, 'assets/player0.png', { frameWidth: config.block_width, frameHeight: config.block_height });
+    }
+    else
+    {
+      sprites.load.spritesheet('player' + player_number, 'assets/player' + this.player_number + '.png', { frameWidth: config.block_width, frameHeight: config.block_height });
+    }
   }
 
-  setup(phaser_object)
+  setup(phaser_context)
   {
-    this.player = phaser_object.physics.add.sprite(100, 450, 'player' + this.player_number);
+    this.player = phaser_context.physics.add.sprite( Math.floor(Math.random() * config.width), // randomise spawn points
+                                                    Math.floor(Math.random() * (config.height - 200)),
+                                                    'player' + this.player_number);
     this.player.setBounce(0.2);
     this.player.setCollideWorldBounds(true);
-    
-    this.player.anims.create({
+    this.player.name = this.player_number // identifies player in callbacks
+
+    this.player.anims.create({ // animation keyframes left
         key: 'left',
         frames: this.player.anims.generateFrameNumbers('player' + this.player_number, { start: 0, end: 3 }),
         frameRate: 10,
         repeat: -1
     });
 
-    this.player.anims.create({
+    this.player.anims.create({ // animation keyframes turn
         key: 'turn',
         frames: [ { key: 'player' + this.player_number, frame: 4 } ],
         frameRate: 20
     });
 
-    this.player.anims.create({
+    this.player.anims.create({ // animation keyframes right
         key: 'right',
         frames: this.player.anims.generateFrameNumbers('player' + this.player_number, { start: 5, end: 8 }),
         frameRate: 10,
         repeat: -1
     });
 
-    if (this.player_number == 0)
+    let textCol = (config.width/config.players) * this.player_number;
+
+    if (this.player_number > 0 && this.player_number < (Object.keys(config.key_binds).length + 1))
     {
-      cursors = phaser_object.input.keyboard.createCursorKeys();
+      this.left = phaser_context.input.keyboard.addKey( eval( "Phaser.Input.Keyboard.KeyCodes." + config.key_binds[this.player_number][0] ) );
+      this.right = phaser_context.input.keyboard.addKey( eval( "Phaser.Input.Keyboard.KeyCodes." + config.key_binds[this.player_number][1] ) );
+      this.up = phaser_context.input.keyboard.addKey( eval( "Phaser.Input.Keyboard.KeyCodes." + config.key_binds[this.player_number][2] ) );
+      this.scoreText = phaser_context.add.text(10 + textCol, 16, this.player_number + ':0', { fontSize: '32px', fill: '#000' });
+    }
+    else
+    {
+      cursors = phaser_context.input.keyboard.createCursorKeys();
       this.left = cursors.left
       this.right = cursors.right
       this.up = cursors.up
-      this.scoreText = phaser_object.add.text(16, 16,this.player_number + ': 0', { fontSize: '32px', fill: '#000' });
-    }
-
-    if (this.player_number == 1)
-    {
-      this.left = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-      this.right = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-      this.up = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-      this.scoreText = phaser_object.add.text(400, 16, this.player_number + ': 0', { fontSize: '32px', fill: '#000' });
-    }
-
-    if (this.player_number == 2)
-    {
-      this.left = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-      this.right = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
-      this.up = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
-      this.scoreText = phaser_object.add.text(16, 46, this.player_number + ': 0', { fontSize: '32px', fill: '#000' });
-    }
-
-    if(this.player_number == 3)
-    {
-      this.left = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
-      this.right = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
-      this.up = phaser_object.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
-      this.scoreText = phaser_object.add.text(400, 46, this.player_number + ': 0', { fontSize: '32px', fill: '#000' });
+      this.scoreText = phaser_context.add.text(10 + textCol, 16, this.player_number + ':0', { fontSize: '32px', fill: '#000' });
     }
   
   }
 
-  setup_collisions(platforms, stars, bombs, phaser_object)
+  setText()
   {
-    phaser_object.physics.add.collider(this.player, platforms);
-    phaser_object.physics.add.overlap(this.player, stars, this.collectStar, null, phaser_object);
-    phaser_object.physics.add.collider(this.player, bombs, this.hitBomb, null, phaser_object);
-
-    for (let player_no = 0; player_no < config.players; player_no++)
-    {
-      if (player_no != this.player_number) // player collisions with eachother
-      {
-        phaser_object.physics.add.collider(this.player, players[player_no].player);
-      }
-    }
+    this.scoreText.setText(this.player_number + ':' +  this.score);
   }
 
   go_left()
@@ -151,43 +137,14 @@ let Player = class {
     this.player.setVelocityY(-330);
   }
 
-
-  collectStar(stars, bombs) 
-  {
-    stars.disableBody(true, true);
-
-    this.score += 10;
-
-    if (stars.countActive(true) === 0)
-    {
-      //  A new batch of stars to collect
-      stars.children.iterate(function (child) {
-
-        child.enableBody(true, child.x, 0, true, true);
-
-      });
-
-      //var x = (this.player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
-
-      var bomb = bombs.create(29, 16, 'bomb');
-      bomb.setBounce(1);
-      bomb.setCollideWorldBounds(true);
-      bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
-      bomb.allowGravity = false;
-
-    }
-  }
-
-  hitBomb (bomb)
-  {
-      this.physics.pause();
-      this.player.setTint(0xff0000);
-      this.player.anims.play('turn');
-      gameOver = true;
-  }
 };
 
-
+var stars;
+var bombs;
+var platforms;
+var cursors;
+var gameOver = false;
+var players = []
 var game = new Phaser.Game(config);
 
 function preload ()
@@ -218,28 +175,29 @@ function create ()
     players[player_no].setup(this);
   }
 
-  stars = this.physics.add.group({
-      key: 'star',
-      repeat: 11,
-      setXY: { x: 12, y: 0, stepX: 70 }
-  });
-
-  stars.children.iterate(function (child) {
-
-      child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
-
-  });
+  stars = this.physics.add.group({key: 'star', repeat: 11, setXY: { x: 12, y: 0, stepX: 70 }});
+  stars.children.iterate(function (child) {child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));});
 
   bombs = this.physics.add.group();
 
-  // collisions
-  for (let player_no = 0; player_no < config.players; player_no++)
+  for (let player_no = 0; player_no < config.players; player_no++)  // collisions
   {
-    players[player_no].setup_collisions(platforms, stars, bombs, this);
+    this.physics.add.collider(players[player_no].player, platforms);
+    this.physics.add.overlap(players[player_no].player, stars, collectStar, null, this);
+    this.physics.add.collider(players[player_no].player, bombs, hitBomb, null, this);
+
+    for (let player_no_2 = 0; player_no_2 < config.players; player_no_2++) // player collisions with eachother
+    {
+      if (player_no != players[player_no_2].player.player_number) 
+      {
+        this.physics.add.collider(players[player_no].player, players[player_no_2].player);
+      }
+    }
   }
 
   this.physics.add.collider(stars, platforms);    
   this.physics.add.collider(bombs, platforms);
+
 }
 
 function update ()
@@ -270,7 +228,54 @@ function update ()
     }
   }
 }
+  
+function hitBomb(player, bomb)
+{
+    this.physics.pause();
+    players[player.name].player.setTint(0xff0000);
+    players[player.name].player.anims.play('turn');
 
+    tmp_score = 0
+    winner = 0
+    for (let player_no = 0; player_no < config.players; player_no++)
+    {
+      if (players[player_no].score > tmp_score)
+      {
+        winner = player_no
+        tmp_score = players[player_no].score
+      }
+    }
+
+    this.add.text(config.width/2 - 150, config.height/2, 'player ' + winner + " wins!", { fontSize: '32px', fill: '#000' });
+    gameOver = true;
+}
+
+function collectStar(player, star)
+{
+  star.disableBody(true, true);
+
+  players[player.name].score += 10
+  players[player.name].setText()
+
+  if (stars.countActive(true) === 0)
+  {
+    stars.children.iterate(function (child)
+    { //  A new batch of stars to collect
+      child.enableBody(true, child.x, 0, true, true);
+    });
+
+    var x = (players[player.name].player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+    if(config.players <= 16)
+    {
+      var bomb = bombs.create(29, 16, 'bomb');
+      bomb.setBounce(1);
+      bomb.setCollideWorldBounds(true);
+      bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+      bomb.allowGravity = false;
+    }
+  }
+}
 </script>
 
 </body>
